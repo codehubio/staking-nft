@@ -1,0 +1,30 @@
+
+[package]
+name = "solana-sbf-staking-pool"
+version = "0.0.1"
+description = "Staking pool for NFT"
+authors = ["hoa <hoa@codehub.io>"]
+repository = "https://github.com/solana-labs/solana"
+license = "Apache-2.0"
+homepage = "https://codehub.io"
+edition = "2018"
+
+[features]
+no-entrypoint = []
+
+[dependencies]
+borsh = "0.9.3"
+borsh-derive = "0.9.1"
+solana-program = "~1.14.5"
+spl-token = "~3.5.0"
+spl-associated-token-account = "~1.1.1"
+thiserror = "1.0.31"
+
+[dev-dependencies]
+solana-program-test = "~1.14.5"
+solana-sdk =  "~1.14.5"
+
+[lib]
+name = "staking_nft"
+crate-type = ["cdylib", "lib"]
+path = "src/lib.rs"

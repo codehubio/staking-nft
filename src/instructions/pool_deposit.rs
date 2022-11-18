@@ -1,0 +1,230 @@
+use borsh::{BorshDeserialize, BorshSerialize};
+use solana_program::{
+    msg,
+    account_info::{next_account_info, AccountInfo},
+    entrypoint::ProgramResult,
+    program::{ invoke_signed, invoke },
+    system_instruction,
+    pubkey::Pubkey,
+    rent::Rent,
+    sysvar::Sysvar,
+    clock::Clock,
+};
+use std::{
+    convert::TryInto
+};
+use crate::common::{
+    get_or_create_next_payroll_by_time,
+    recalculate_reward_rate,
+    verify_system_account,
+    verify_program_account,
+    get_staking_pda,
+};
+
+/// Define the type of state stored in accounts
+use crate::schemas::states::pool::{
+    Pool,
+};
+use crate::schemas::states::payroll::{
+    Payroll,
+};
+
+use crate::schemas::states::staking_account::{
+    StakingAccount,
+    STAKING_PDA_LEN,
+    STAKING_SEED
+};
+
+use crate::schemas::states::token_data::{
+    TokenData,
+    TOKEN_DATA_SEED
+};
+
+use spl_associated_token_account::{
+    instruction as spl_instruction,
+};
+use crate::schemas::instructions::pool_deposit::{
+    PoolDepositIns,
+};
+use crate::error::ContractError;
+pub fn process_instruction <'a>(
+    program_id: &Pubkey, // Public key of the account the hello world program was loaded into
+    accounts: &'a [AccountInfo<'a>], // The account to say hello to
+    instruction_data: &[u8],
+) -> ProgramResult {
+    let accounts_iter = &mut accounts.iter();
+    let account = next_account_info(accounts_iter)?;
+    let pda_account = next_account_info(accounts_iter)?;
+    let pool_pda_account = next_account_info(accounts_iter)?;
+    let staking_token_mint_account= next_account_info(accounts_iter)?;
+    let staking_token_source_associated_account= next_account_info(accounts_iter)?;
+    let staking_token_dest_associated_account = next_account_info(accounts_iter)?;
+    let staking_token_data_pda = next_account_info(accounts_iter)?;
+    let payroll_pda = next_account_info(accounts_iter)?;
+    let token_program_account = next_account_info(accounts_iter)?;
+    let system_program_account = next_account_info(accounts_iter)?;
+    let main_account = next_account_info(accounts_iter)?;
+    // check for account
+    // let pool_pda_account_data = pool_pda_account.data.borrow();
+    msg!("Verifying accounts");
+    verify_system_account(account)?;
+    verify_program_account(pool_pda_account, program_id)?;
+    verify_program_account(staking_token_data_pda, program_id)?;
+    let token_data_seeeds = &[
+        TOKEN_DATA_SEED,
+        &staking_token_mint_account.key.to_bytes(),
+    ];
+    let (expected_token_data_pda, _bump) = Pubkey::find_program_address(token_data_seeeds, program_id);
+    if expected_token_data_pda != *staking_token_data_pda.key {
+        return Err(ContractError::InvalidPdaAccount.into());
+    }
+    let inst_data = PoolDepositIns::try_from_slice(&instruction_data)?;
+    let mut pool_data = Pool::try_from_slice(&pool_pda_account.data.borrow())?;
+    // accept +- 10 seconds differences
+    let clock = Clock::get()?;
+    let now = clock.unix_timestamp;
+    let (expected_pda_account, bump) = get_staking_pda(
+        &pool_pda_account.key,
+        &account.key,
+        &staking_token_mint_account.key,
+        program_id
+    ).ok().unwrap();
+    let token_data = TokenData::try_from_slice(&staking_token_data_pda.data.borrow())?;
+    let (next_payroll, next_payroll_index) = match get_or_create_next_payroll_by_time(
+        now as u64,
+        program_id,
+        account,
+        pool_pda_account,
+        payroll_pda,
+        system_program_account,
+        pool_data.clone(),
+    ) {
+        Ok(p) => p,
+        Err(err) => return Err(err),
+    };
+
+    if next_payroll != *payroll_pda.key {
+        return Err(ContractError::InvalidPdaAccount.into());
+    }
+
+    if *pda_account.key != expected_pda_account {
+        return Err(ContractError::InvalidPdaAccount.into());
+    }
+    let first_payroll_index = next_payroll_index;
+    msg!("Checking for previous deposit");
+    let lamports_required = Rent::get()?.minimum_balance(STAKING_PDA_LEN);
+    let withdrawn_address = inst_data.withdrawn_address;
+    let deposited_at = clock.unix_timestamp as u64;
+    let parsed_deposit_at = deposited_at.to_string();
+    let signers_seeds: &[&[u8]; 5] = &[
+        STAKING_SEED,
+        parsed_deposit_at.as_bytes(),
+        &pool_pda_account.key.to_bytes(),
+        &account.key.to_bytes(),
+        &[bump],
+    ];
+    let pda_account_data_len = pda_account.data_len();
+    if pda_account_data_len <= 0 {
+        msg!("Creating or updating pda");
+        let create_pda_account_ix = system_instruction::create_account(
+            &main_account.key,
+            &pda_account.key,
+            lamports_required,
+            STAKING_PDA_LEN.try_into().unwrap(),
+            &program_id,
+        );
+        
+        invoke_signed(
+            &create_pda_account_ix,
+            &[
+                main_account.clone(),
+                pda_account.clone(),
+                system_program_account.clone(),
+            ],
+            &[signers_seeds],
+        )?;
+        let create_token_account_ix = spl_instruction::create_associated_token_account(
+            &main_account.key,
+            &pda_account.key,
+            &staking_token_mint_account.key,
+            &token_program_account.key
+        );
+        invoke(
+            &create_token_account_ix,
+            &[
+              main_account.clone(),
+              staking_token_dest_associated_account.clone(),
+              pda_account.clone(),
+              staking_token_mint_account.clone(),
+              system_program_account.clone(),
+              token_program_account.clone(),
+            ],
+        )?;
+    }
+    // now transfer
+    let ix = spl_token::instruction::transfer(
+        &token_program_account.key,
+        &staking_token_source_associated_account.key,
+        &staking_token_dest_associated_account.key,
+        &account.key,
+        &[],
+        1,
+    )?;
+    // let signers_seeds: &[&[u8]; 1] = &[
+    //     &pda_account.key.to_bytes(),
+    // ];
+    match invoke(
+        &ix,
+        &[
+            staking_token_source_associated_account.clone(),
+            staking_token_dest_associated_account.clone(),
+            account.clone(),
+            token_program_account.clone(),
+        ],
+    ) {
+        Ok(p) => p,
+        Err(_err) => return Err(ContractError::TransferError.into()),
+    };
+    let staking_account = StakingAccount {
+        deposited_power: token_data.power,
+        deposited_at,
+        withdrawn_at: 0,
+        withdrawn_reward_amount: 0,
+        first_payroll_index,
+        depositor: account.key.clone(),
+        pool_pda_account: pool_pda_account.key.clone(),
+        staking_token_mint_address: *staking_token_mint_account.key,
+        withdrawn_address,
+    };
+    staking_account.serialize(&mut &mut pda_account.data.borrow_mut()[..])?;
+    pool_data.total_deposited_power += token_data.power;
+    let reward_period = pool_data.reward_period;
+    let start_at = pool_data.start_at;
+    let total_deposited_power = pool_data.total_deposited_power;
+    pool_data.serialize(&mut &mut pool_pda_account.data.borrow_mut()[..])?;
+    let mut payroll_total_reward: u64 = 0;
+    let mut reward_withdrawn_amount = 0;
+    if payroll_pda.data_len() > 0 {
+        let current_payroll_data = Payroll::try_from_slice(&payroll_pda.data.borrow())?;
+        payroll_total_reward += current_payroll_data.total_reward_amount;
+        reward_withdrawn_amount = current_payroll_data.reward_withdrawn_amount;
+    }
+    let rate_reward = recalculate_reward_rate(
+        total_deposited_power,
+        payroll_total_reward,
+    );
+    let payroll_account_data = Payroll {
+        total_deposited_power,
+        reward_withdrawn_amount,
+        total_reward_amount: payroll_total_reward,
+        index: next_payroll_index,
+        start_at,
+        rate_reward,
+        claimable_after: start_at + next_payroll_index * reward_period,
+        pool_pda_account: *pool_pda_account.key,
+        creator: *account.key
+    };
+    payroll_account_data.serialize(&mut &mut payroll_pda.data.borrow_mut()[..])?;
+
+    Ok(())
+}
