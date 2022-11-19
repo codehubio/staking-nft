@@ -46,6 +46,11 @@ pub fn process_instruction<'a>(
             accounts,
             rest,
         ),
+        6 =>  instructions::token_data::process_instruction(
+            program_id,
+            accounts,
+            rest,
+        ),
         _ => Err(ProgramError::InvalidInstructionData)
     }?;
     Ok(())

@@ -20,7 +20,6 @@ use solana_program::{
     pubkey::Pubkey,
     rent::Rent,
     system_instruction,
-    system_program::ID as SYSTEM_PROGRAM_ID,
     sysvar::Sysvar,
 };
 use spl_associated_token_account::instruction as spl_instruction;
@@ -45,7 +44,6 @@ pub fn process_instruction<'a>(
     let reward_token_pool_associated_account = next_account_info(accounts_iter)?;
     let reward_token_dest_associated_account = next_account_info(accounts_iter)?;
     let payroll_pda = next_account_info(accounts_iter)?;
-    let dao_voting_pda = next_account_info(accounts_iter)?;
     let token_program_account = next_account_info(accounts_iter)?;
     let system_program_account = next_account_info(accounts_iter)?;
     // check for account
@@ -59,7 +57,7 @@ pub fn process_instruction<'a>(
     verify_program_account(pool_pda_account, program_id)?;
     verify_program_account(pda_account, program_id)?;
     let clock = Clock::get()?;
-    let mut pool_data = Pool::try_from_slice(&pool_pda_account.data.borrow())?;
+    let pool_data = Pool::try_from_slice(&pool_pda_account.data.borrow())?;
     // only check if dao is not system program
     verify_ata_account(
         &reward_pda.key,

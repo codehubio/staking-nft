@@ -29,7 +29,6 @@ pub fn process_instruction(
     let accounts_iter = &mut accounts.iter();
     let account = next_account_info(accounts_iter)?;
     let pda_account = next_account_info(accounts_iter)?;
-    let rewarder_pda_account = next_account_info(accounts_iter)?;
     let reward_token_mint_account= next_account_info(accounts_iter)?;
     let reward_token_associated_account= next_account_info(accounts_iter)?;
     let token_program_account = next_account_info(accounts_iter)?;
@@ -100,7 +99,7 @@ pub fn process_instruction(
     pool_account_data.start_at = inst_data.start_at;
     pool_account_data.creator = inst_data.creator;
     pool_account_data.collection = inst_data.collection;
-    pool_account_data.poolType = inst_data.poolType;
+    pool_account_data.pool_type = inst_data.pool_type;
     pool_account_data.serialize(&mut &mut pda_account.data.borrow_mut()[..])?;
     Ok(())
 }

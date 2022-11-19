@@ -21,6 +21,6 @@ pub struct PoolInitializationIns {
 
   pub collection: Pubkey,
 
-  pub poolType: u8,
+  pub pool_type: u8,
 
 }

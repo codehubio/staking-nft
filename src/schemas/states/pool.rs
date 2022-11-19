@@ -23,7 +23,7 @@ pub struct Pool {
     
     pub reward_ata: Pubkey,
     // poolType
-    pub poolType: u8,
+    pub pool_type: u8,
     // creator
     pub creator: Pubkey,
 

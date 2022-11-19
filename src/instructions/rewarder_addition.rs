@@ -48,13 +48,13 @@ pub fn process_instruction<'a>(
     )?;
     let inst_data = RewardAddition::try_from_slice(instruction_data)?;
     let current_payroll_index = inst_data.payroll_index;
-    let mut updated_pool_data = Pool::try_from_slice(&pool_pda_account.data.borrow())?;
+    let updated_pool_data = Pool::try_from_slice(&pool_pda_account.data.borrow())?;
     let reward_period = updated_pool_data.reward_period;
     let start_at = updated_pool_data.start_at;
     let total_deposited_power = updated_pool_data.total_deposited_power;
-    let matchToken =
+    let match_token =
         updated_pool_data.reward_token_mint_address == *reward_token_mint_account.key;
-    if matchToken {
+    if match_token {
         return Err(ContractError::InvalidRewardToken.into());
     }
     let (current_payroll_pda, _currrent_payroll_index) = match get_or_create_payroll_by_index(

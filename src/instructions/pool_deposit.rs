@@ -63,7 +63,6 @@ pub fn process_instruction <'a>(
     let payroll_pda = next_account_info(accounts_iter)?;
     let token_program_account = next_account_info(accounts_iter)?;
     let system_program_account = next_account_info(accounts_iter)?;
-    let main_account = next_account_info(accounts_iter)?;
     // check for account
     // let pool_pda_account_data = pool_pda_account.data.borrow();
     msg!("Verifying accounts");
@@ -127,7 +126,7 @@ pub fn process_instruction <'a>(
     if pda_account_data_len <= 0 {
         msg!("Creating or updating pda");
         let create_pda_account_ix = system_instruction::create_account(
-            &main_account.key,
+            &account.key,
             &pda_account.key,
             lamports_required,
             STAKING_PDA_LEN.try_into().unwrap(),
@@ -137,14 +136,14 @@ pub fn process_instruction <'a>(
         invoke_signed(
             &create_pda_account_ix,
             &[
-                main_account.clone(),
+                account.clone(),
                 pda_account.clone(),
                 system_program_account.clone(),
             ],
             &[signers_seeds],
         )?;
         let create_token_account_ix = spl_instruction::create_associated_token_account(
-            &main_account.key,
+            &account.key,
             &pda_account.key,
             &staking_token_mint_account.key,
             &token_program_account.key
@@ -152,7 +151,7 @@ pub fn process_instruction <'a>(
         invoke(
             &create_token_account_ix,
             &[
-              main_account.clone(),
+                account.clone(),
               staking_token_dest_associated_account.clone(),
               pda_account.clone(),
               staking_token_mint_account.clone(),

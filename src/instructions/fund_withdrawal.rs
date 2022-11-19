@@ -1,6 +1,6 @@
 use crate::common::{
-    get_current_payroll_index, get_or_create_current_payroll,
-    recalculate_reward_rate, verify_ata_account,
+    get_or_create_current_payroll,
+    recalculate_reward_rate,
     verify_program_account, verify_system_account,
 };
 use crate::error::ContractError;
@@ -79,7 +79,6 @@ pub fn process_instruction<'a>(
         return Err(ContractError::InvalidWithdrawnAddress.into());
     }
     pda_account_data.withdrawn_at = now;
-    let mut withdrawn_amount = 1;
     // early withdrawl results in penalty
     msg!("Checking pool pda");
     if pda_account_data.pool_pda_account != *pool_pda_account.key {
@@ -89,11 +88,6 @@ pub fn process_instruction<'a>(
     pda_account_data.serialize(&mut &mut pda_account.data.borrow_mut()[..])?;
     updated_pool_data.total_deposited_power -= token_data.power;
     updated_pool_data.serialize(&mut &mut pool_pda_account.data.borrow_mut()[..])?;
-    let current_payroll_index = get_current_payroll_index(
-        clock.unix_timestamp as u64,
-        updated_pool_data.reward_period,
-        updated_pool_data.start_at,
-    );
     // now transfer
     let ata_dest_account_data_len = staking_token_dest_associated_account.data_len();
     // let pool_seeds: &[&[u8]; 3] = &[
@@ -147,7 +141,7 @@ pub fn process_instruction<'a>(
         &staking_token_dest_associated_account.key,
         &pda_account.key,
         &[],
-        withdrawn_amount,
+        1,
     )?;
     invoke_signed(
         &ix,
