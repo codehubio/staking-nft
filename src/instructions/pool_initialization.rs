@@ -44,8 +44,10 @@ pub fn process_instruction(
         POOL_SEED,
         &account.key.to_bytes(),
     ];
-    let (_, bump) = Pubkey::find_program_address(account_seeds, program_id);
-    
+    let (expected_pda, bump) = Pubkey::find_program_address(account_seeds, program_id);
+    if expected_pda != *pda_account.key {
+        return Err(ContractError::InvalidPdaAccount.into());
+    }
     
     let signers_seeds: &[&[u8]; 4] = &[
         pool_name,
