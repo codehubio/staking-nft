@@ -10,6 +10,7 @@ use solana_program::{
 
 #[derive(BorshSerialize, BorshDeserialize, Debug, Clone)]
 pub struct Pool {
+    pub account_type: u8,
     // pool name 16 char
     pub name: [u8; 16],
 
@@ -30,5 +31,5 @@ pub struct Pool {
     pub collection: Pubkey,
 
 }
-pub const POOL_PDA_LEN: usize = 16 + 8 + 8 + 8 + 32 + 32 + 1 + 32 + 32;
+pub const POOL_PDA_LEN: usize = 16 + 1 + 8 + 8 + 8 + 32 + 32 + 1 + 32 + 32;
 pub const POOL_SEED: &[u8] = b"pool";

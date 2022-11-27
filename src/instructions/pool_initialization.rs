@@ -14,11 +14,11 @@ use spl_associated_token_account::{
 };
 use std::convert::TryInto;
 // use super::structs;
-use crate::schemas::states::pool::{
+use crate::{schemas::states::pool::{
     Pool,
     POOL_PDA_LEN,
     POOL_SEED,
-};
+}, common::POOL_ACCOUNT_TYPE};
 use crate::schemas::instructions::pool_initialization::PoolInitializationIns;
 use crate::error::ContractError;
 pub fn process_instruction(
@@ -97,6 +97,7 @@ pub fn process_instruction(
     pool_account_data.reward_token_mint_address = *reward_token_mint_account.key;
     pool_account_data.reward_ata = *reward_token_associated_account.key;
     pool_account_data.reward_period = inst_data.reward_period;
+    pool_account_data.account_type = POOL_ACCOUNT_TYPE;
     // pool_account_data.start_at = clock.unix_timestamp as u64;
     pool_account_data.start_at = inst_data.start_at;
     pool_account_data.creator = inst_data.creator;

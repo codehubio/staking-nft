@@ -1,6 +1,5 @@
 use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::{
-    msg,
     account_info::{next_account_info, AccountInfo},
     entrypoint::ProgramResult,
     program::{ invoke_signed, invoke },
@@ -9,16 +8,17 @@ use solana_program::{
     rent::Rent,
     sysvar::Sysvar,
     clock::Clock,
+    msg,
 };
 use std::{
     convert::TryInto
 };
 use crate::common::{
-    get_or_create_next_payroll_by_time,
+    get_or_create_current_payroll_by_time,
     recalculate_reward_rate,
     verify_system_account,
     verify_program_account,
-    get_staking_pda,
+    get_staking_pda, STAKING_ACCOUNT_TYPE,
 };
 
 /// Define the type of state stored in accounts
@@ -43,14 +43,11 @@ use crate::schemas::states::token_data::{
 use spl_associated_token_account::{
     instruction as spl_instruction,
 };
-use crate::schemas::instructions::pool_deposit::{
-    PoolDepositIns,
-};
 use crate::error::ContractError;
 pub fn process_instruction <'a>(
     program_id: &Pubkey, // Public key of the account the hello world program was loaded into
     accounts: &'a [AccountInfo<'a>], // The account to say hello to
-    instruction_data: &[u8],
+    _instruction_data: &[u8],
 ) -> ProgramResult {
     let accounts_iter = &mut accounts.iter();
     let account = next_account_info(accounts_iter)?;
@@ -68,7 +65,7 @@ pub fn process_instruction <'a>(
     msg!("Verifying accounts");
     verify_system_account(account)?;
     verify_program_account(pool_pda_account, program_id)?;
-    verify_program_account(staking_token_data_pda, program_id)?;
+    // verify_program_account(staking_token_data_pda, program_id)?;
     let token_data_seeeds = &[
         TOKEN_DATA_SEED,
         &staking_token_mint_account.key.to_bytes(),
@@ -77,7 +74,7 @@ pub fn process_instruction <'a>(
     if expected_token_data_pda != *staking_token_data_pda.key {
         return Err(ContractError::InvalidPdaAccount.into());
     }
-    let inst_data = PoolDepositIns::try_from_slice(&instruction_data)?;
+    // let inst_data = PoolDepositIns::try_from_slice(&instruction_data)?;
     let mut pool_data = Pool::try_from_slice(&pool_pda_account.data.borrow())?;
     // accept +- 10 seconds differences
     let clock = Clock::get()?;
@@ -89,7 +86,7 @@ pub fn process_instruction <'a>(
         program_id
     ).ok().unwrap();
     let token_data = TokenData::try_from_slice(&staking_token_data_pda.data.borrow())?;
-    let (next_payroll, next_payroll_index) = match get_or_create_next_payroll_by_time(
+    let (next_payroll, next_payroll_index) = match get_or_create_current_payroll_by_time(
         now as u64,
         program_id,
         account,
@@ -101,25 +98,22 @@ pub fn process_instruction <'a>(
         Ok(p) => p,
         Err(err) => return Err(err),
     };
-
     if next_payroll != *payroll_pda.key {
         return Err(ContractError::InvalidPdaAccount.into());
     }
-
     if *pda_account.key != expected_pda_account {
         return Err(ContractError::InvalidPdaAccount.into());
     }
     let first_payroll_index = next_payroll_index;
     msg!("Checking for previous deposit");
     let lamports_required = Rent::get()?.minimum_balance(STAKING_PDA_LEN);
-    let withdrawn_address = inst_data.withdrawn_address;
+    let withdrawn_address = *account.key;
     let deposited_at = clock.unix_timestamp as u64;
-    let parsed_deposit_at = deposited_at.to_string();
     let signers_seeds: &[&[u8]; 5] = &[
         STAKING_SEED,
-        parsed_deposit_at.as_bytes(),
-        &pool_pda_account.key.to_bytes(),
+        &staking_token_mint_account.key.to_bytes(),
         &account.key.to_bytes(),
+        &pool_pda_account.key.to_bytes(),
         &[bump],
     ];
     let pda_account_data_len = pda_account.data_len();
@@ -144,16 +138,16 @@ pub fn process_instruction <'a>(
         )?;
         let create_token_account_ix = spl_instruction::create_associated_token_account(
             &account.key,
-            &pda_account.key,
+            &pool_pda_account.key,
             &staking_token_mint_account.key,
             &token_program_account.key
         );
         invoke(
             &create_token_account_ix,
             &[
-                account.clone(),
+              account.clone(),
               staking_token_dest_associated_account.clone(),
-              pda_account.clone(),
+              pool_pda_account.clone(),
               staking_token_mint_account.clone(),
               system_program_account.clone(),
               token_program_account.clone(),
@@ -185,6 +179,7 @@ pub fn process_instruction <'a>(
         Err(_err) => return Err(ContractError::TransferError.into()),
     };
     let staking_account = StakingAccount {
+        account_type: STAKING_ACCOUNT_TYPE,
         deposited_power: token_data.power,
         deposited_at,
         withdrawn_at: 0,
@@ -195,6 +190,7 @@ pub fn process_instruction <'a>(
         staking_token_mint_address: *staking_token_mint_account.key,
         withdrawn_address,
     };
+    msg!("{:?}", staking_account);
     staking_account.serialize(&mut &mut pda_account.data.borrow_mut()[..])?;
     pool_data.total_deposited_power += token_data.power;
     let reward_period = pool_data.reward_period;
