@@ -34,6 +34,7 @@ use crate::error::ContractError::{
 pub const DECIMAL_REWARD: u32 = 6;
 pub const POOL_ACCOUNT_TYPE: u8 = 100;
 pub const STAKING_ACCOUNT_TYPE: u8 = 101;
+pub const TOKEN_DATA_ACCOUNT_TYPE: u8 = 102;
 
 pub fn get_current_payroll_index(
     current_at: u64,

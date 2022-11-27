@@ -13,7 +13,7 @@ use std::{
     convert::TryInto
 };
 use crate::common::{
-    verify_system_account,
+    verify_system_account, TOKEN_DATA_ACCOUNT_TYPE,
 };
 
 /// Define the type of state stored in accounts
@@ -76,6 +76,7 @@ pub fn process_instruction <'a>(
         &[token_data_signer_seeeds],
     )?;
     let token_data = TokenData {
+        account_type: TOKEN_DATA_ACCOUNT_TYPE,
         power: inst.token_power,
         token_mint_address: *staking_token_mint_account.key,
     };
