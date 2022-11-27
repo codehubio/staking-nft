@@ -11,6 +11,7 @@ use solana_program::{
 
 #[derive(BorshSerialize, BorshDeserialize, Debug, PartialEq, Clone)]
 pub struct StakingPayroll {
+    pub account_type: u8,
     pub staking_pda_account: Pubkey,
     pub deposited_power: u64,
     pub total_pool_deposited_power: u64,
@@ -20,4 +21,4 @@ pub struct StakingPayroll {
     pub withdrawn_at: u64,
 }
 pub const STAKING_PAYROLL_SEED: &[u8] = b"stakingpayroll";
-pub const STAKING_PAYROLL_PDA_LEN: usize =  32 + 8 + 8 + 8 + 8 + 8 + 8 + 8 + 8;
+pub const STAKING_PAYROLL_PDA_LEN: usize = 1 + 32 + 8 + 8 + 8 + 8 + 8 + 8 + 8 + 8;

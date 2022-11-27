@@ -25,6 +25,6 @@ solana-program-test = "~1.14.5"
 solana-sdk =  "~1.14.5"
 
 [lib]
-name = "staking_nft"
+name = "staking_nft_2"
 crate-type = ["cdylib", "lib"]
 path = "src/lib.rs"

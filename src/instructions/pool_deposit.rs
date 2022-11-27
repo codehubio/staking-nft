@@ -13,13 +13,13 @@ use solana_program::{
 use std::{
     convert::TryInto
 };
-use crate::common::{
+use crate::{common::{
     get_or_create_current_payroll_by_time,
     recalculate_reward_rate,
     verify_system_account,
     verify_program_account,
-    get_staking_pda, STAKING_ACCOUNT_TYPE,
-};
+    get_staking_pda, STAKING_ACCOUNT_TYPE, POOL_PAYROLL_ACCOUNT_TYPE, TOKEN_DATA_ACCOUNT_TYPE,
+}, schemas::states::token_data::TOKEN_DATA_PDA_LEN};
 
 /// Define the type of state stored in accounts
 use crate::schemas::states::pool::{
@@ -85,7 +85,15 @@ pub fn process_instruction <'a>(
         &staking_token_mint_account.key,
         program_id
     ).ok().unwrap();
-    let token_data = TokenData::try_from_slice(&staking_token_data_pda.data.borrow())?;
+    let token_data: TokenData = match staking_token_data_pda.data_len() != TOKEN_DATA_PDA_LEN {
+        true => TokenData {
+            account_type: TOKEN_DATA_ACCOUNT_TYPE,
+            power: 1,
+            token_mint_address: *staking_token_mint_account.key,
+        },
+        false => TokenData::try_from_slice(&staking_token_data_pda.data.borrow())?
+    };
+    // let token_data = TokenData::try_from_slice(&staking_token_data_pda.data.borrow())?;
     let (next_payroll, next_payroll_index) = match get_or_create_current_payroll_by_time(
         now as u64,
         program_id,
@@ -209,6 +217,7 @@ pub fn process_instruction <'a>(
         payroll_total_reward,
     );
     let payroll_account_data = Payroll {
+        account_type: POOL_PAYROLL_ACCOUNT_TYPE,
         total_deposited_power,
         reward_withdrawn_amount,
         total_reward_amount: payroll_total_reward,

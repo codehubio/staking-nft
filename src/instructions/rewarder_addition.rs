@@ -1,6 +1,6 @@
 use crate::common::{
     get_or_create_payroll_by_index,
-    recalculate_reward_rate, verify_ata_account, verify_system_account,
+    recalculate_reward_rate, verify_ata_account, verify_system_account, POOL_PAYROLL_ACCOUNT_TYPE,
 };
 use crate::schemas::states::pool::Pool;
 use borsh::{BorshDeserialize, BorshSerialize};
@@ -109,6 +109,7 @@ pub fn process_instruction<'a>(
         payroll_total_reward,
     );
     let payroll_account_data = Payroll {
+        account_type: POOL_PAYROLL_ACCOUNT_TYPE,
         total_deposited_power,
         total_reward_amount: payroll_total_reward,
         rate_reward,

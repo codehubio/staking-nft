@@ -1,7 +1,7 @@
 use crate::common::{
     get_current_payroll_index,
     get_or_create_payroll_by_index, verify_ata_account, verify_program_account,
-    verify_system_account, DECIMAL_REWARD,
+    verify_system_account, DECIMAL_REWARD, STAKING_PAYROLL_ACCOUNT_TYPE,
 };
 use crate::error::ContractError;
 use crate::schemas::states::payroll::Payroll;
@@ -226,6 +226,7 @@ pub fn process_instruction<'a>(
     // tranfer the interest
     staking_account.serialize(&mut &mut pda_account.data.borrow_mut()[..])?;
     let updated_staking_payroll_data = StakingPayroll {
+        account_type: STAKING_PAYROLL_ACCOUNT_TYPE,
         staking_pda_account: *pda_account.key,
         deposited_power: staking_account.deposited_power,
         total_pool_deposited_power: payroll_data.total_deposited_power,
