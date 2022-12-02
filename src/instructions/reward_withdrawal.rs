@@ -6,7 +6,7 @@ use crate::common::{
 use crate::error::ContractError;
 use crate::schemas::states::payroll::Payroll;
 /// Define the type of state stored in accounts
-use crate::schemas::states::pool::Pool;
+use crate::schemas::states::pool::{Pool, REWADER_SEED};
 use crate::schemas::states::staking_account::StakingAccount;
 use crate::schemas::states::staking_payroll::{
     StakingPayroll, STAKING_PAYROLL_PDA_LEN, STAKING_PAYROLL_SEED,
@@ -60,7 +60,7 @@ pub fn process_instruction<'a>(
     let pool_data = Pool::try_from_slice(&pool_pda_account.data.borrow())?;
     // only check if dao is not system program
     verify_ata_account(
-        &pool_pda_account.key,
+        &reward_pda.key,
         reward_token_pool_associated_account.key,
         &pool_data.reward_token_mint_address,
     )?;
@@ -94,14 +94,19 @@ pub fn process_instruction<'a>(
         return Err(ContractError::InvalidPdaAccount.into());
     }
 
-    let rewarder_pda_account_seeds: &[&[u8]; 2] =
-        &[&payroll_pda.key.to_bytes(), &pool_pda_account.key.to_bytes()];
+    let rewarder_pda_account_seeds: &[&[u8]; 3] =
+        &[
+            REWADER_SEED,
+            &payroll_pda.key.to_bytes(),
+            &pool_pda_account.key.to_bytes()
+        ];
     let (expected_rewarder, reward_bump) =
         Pubkey::find_program_address(rewarder_pda_account_seeds, program_id);
     if expected_rewarder != *reward_pda.key {
         return Err(ContractError::InvalidPdaAccount.into());
     }
-    let rewarder_pda_signer_seeds: &[&[u8]; 3] = &[
+    let rewarder_pda_signer_seeds: &[&[u8]; 4] = &[
+        REWADER_SEED,
         &payroll_pda.key.to_bytes(),
         &pool_pda_account.key.to_bytes(),
         &[reward_bump],

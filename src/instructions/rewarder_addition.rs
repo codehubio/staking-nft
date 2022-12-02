@@ -9,7 +9,6 @@ use solana_program::{
     entrypoint::ProgramResult,
     program::invoke,
     pubkey::Pubkey,
-    msg,
 };
 use spl_associated_token_account::{
     instruction as spl_instruction,
@@ -66,10 +65,6 @@ pub fn process_instruction<'a>(
     if !match_token {
         return Err(ContractError::InvalidRewardToken.into());
     }
-    msg!("{:?}", reward_token_dest_associated_account.key );
-    msg!("{:?}", payroll_pda.key );
-    msg!("{:?}", reward_token_source_associated_account.key );
-    msg!("{:?}", payroll_pda.data_len() );
     if payroll_pda.data_len() <= 0 {
         let (current_payroll_pda, _currrent_payroll_index) = match get_or_create_payroll_by_index(
             current_payroll_index,
