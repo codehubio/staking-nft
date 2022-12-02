@@ -60,7 +60,7 @@ pub fn process_instruction<'a>(
     let pool_data = Pool::try_from_slice(&pool_pda_account.data.borrow())?;
     // only check if dao is not system program
     verify_ata_account(
-        &reward_pda.key,
+        &pool_pda_account.key,
         reward_token_pool_associated_account.key,
         &pool_data.reward_token_mint_address,
     )?;

@@ -14,7 +14,7 @@ use std::{
     convert::TryInto
 };
 use crate::{common::{
-    get_or_create_current_payroll_by_time,
+    get_or_create_next_payroll_by_time,
     recalculate_reward_rate,
     verify_system_account,
     verify_program_account,
@@ -94,7 +94,7 @@ pub fn process_instruction <'a>(
         false => TokenData::try_from_slice(&staking_token_data_pda.data.borrow())?
     };
     // let token_data = TokenData::try_from_slice(&staking_token_data_pda.data.borrow())?;
-    let (next_payroll, next_payroll_index) = match get_or_create_current_payroll_by_time(
+    let (next_payroll, next_payroll_index) = match get_or_create_next_payroll_by_time(
         now as u64,
         program_id,
         account,

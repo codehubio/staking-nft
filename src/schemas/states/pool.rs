@@ -33,3 +33,4 @@ pub struct Pool {
 }
 pub const POOL_PDA_LEN: usize = 16 + 1 + 8 + 8 + 8 + 32 + 32 + 1 + 32 + 32;
 pub const POOL_SEED: &[u8] = b"pool";
+pub const REWADER_SEED: &[u8] = b"rewarder";
