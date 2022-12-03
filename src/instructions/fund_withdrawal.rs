@@ -6,8 +6,8 @@ use crate::common::{
 use crate::error::ContractError;
 use crate::schemas::states::payroll::Payroll;
 /// Define the type of state stored in accounts
-use crate::schemas::states::pool::Pool;
-use crate::schemas::states::staking_account::{StakingAccount, STAKING_SEED};
+use crate::schemas::states::pool::{Pool, POOL_SEED};
+use crate::schemas::states::staking_account::{StakingAccount};
 use borsh::{BorshDeserialize, BorshSerialize};
 use solana_program::{
     account_info::{next_account_info, AccountInfo},
@@ -43,7 +43,6 @@ pub fn process_instruction<'a>(
     let payroll_pda = next_account_info(accounts_iter)?;
     let token_program_account = next_account_info(accounts_iter)?;
     let system_program_account = next_account_info(accounts_iter)?;
-    let main_account = next_account_info(accounts_iter)?;
     // check for account
     // let pool_pda_account_data = pool_pda_account.data.borrow();
     verify_system_account(&account)?;
@@ -95,30 +94,28 @@ pub fn process_instruction<'a>(
     //   POOL_SEED,
     //   &pool_creator_account.key.to_bytes(),
     // ];
-    let pda_account_seeds: &[&[u8]; 4] = &[
-        STAKING_SEED,
-        &staking_token_mint_account.key.to_bytes(),
-        &account.key.to_bytes(),
-        &pool_pda_account.key.to_bytes()
+    let pool_pda_account_seeds: &[&[u8]; 3] = &[
+        &updated_pool_data.name[..],
+        POOL_SEED,
+        &updated_pool_data.creator.to_bytes(),
     ];
-    let (_, bump) = Pubkey::find_program_address(pda_account_seeds, program_id);
+    let (_, bump) = Pubkey::find_program_address(pool_pda_account_seeds, program_id);
     // let pool_signers_seeds: &[&[u8]; 4] = &[
     //   &updated_pool_data.name[..],
     //     POOL_SEED,
     //     &pool_creator_account.key.to_bytes(),
     //     &[bump],
     // ];
-    let pda_signers_seeds: &[&[u8]; 5] = &[
-        STAKING_SEED,
-        &staking_token_mint_account.key.to_bytes(),
-        &account.key.to_bytes(),
-        &pool_pda_account.key.to_bytes(),
+    let pool_pda_signers_seeds: &[&[u8]; 4] = &[
+        &updated_pool_data.name[..],
+        POOL_SEED,
+        &updated_pool_data.creator.to_bytes(),
         &[bump],
     ];
     // msg!("ata dst address: {:?}, {:?}" ,staking_account.withdrawn_address, dst_account.key);
     if ata_dest_account_data_len <= 0 {
         let create_token_account_ix = spl_instruction::create_associated_token_account(
-            &main_account.key,
+            &account.key,
             &withdrawn_address,
             &staking_token_mint_account.key,
             &token_program_account.key,
@@ -126,7 +123,7 @@ pub fn process_instruction<'a>(
         invoke(
             &create_token_account_ix,
             &[
-                main_account.clone(),
+                account.clone(),
                 staking_token_dest_associated_account.clone(),
                 withdraw_account.clone(),
                 staking_token_mint_account.clone(),
@@ -139,7 +136,7 @@ pub fn process_instruction<'a>(
         &token_program_account.key,
         &staking_token_source_associated_account.key,
         &staking_token_dest_associated_account.key,
-        &pda_account.key,
+        &pool_pda_account.key,
         &[],
         1,
     )?;
@@ -148,15 +145,15 @@ pub fn process_instruction<'a>(
         &[
             staking_token_source_associated_account.clone(),
             staking_token_dest_associated_account.clone(),
-            pda_account.clone(),
+            pool_pda_account.clone(),
             token_program_account.clone(),
         ],
-        &[pda_signers_seeds],
+        &[pool_pda_signers_seeds],
     )?;
     
     match get_or_create_current_payroll(
         program_id,
-        main_account,
+        account,
         pool_pda_account,
         payroll_pda,
         system_program_account,

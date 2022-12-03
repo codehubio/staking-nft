@@ -21,6 +21,7 @@ use solana_program::{
     rent::Rent,
     system_instruction,
     sysvar::Sysvar,
+    msg,
 };
 use spl_associated_token_account::instruction as spl_instruction;
 use std::convert::TryInto;
@@ -88,7 +89,7 @@ pub fn process_instruction<'a>(
         system_program_account,
     ) {
         Ok(p) => p,
-        Err(_err) => return Err(ContractError::InvalidTimeRange.into()),
+        Err(_err) => return Err(ContractError::InvalidPdaAccount.into()),
     };
     if expected_payroll != *payroll_pda.key {
         return Err(ContractError::InvalidPdaAccount.into());
@@ -191,7 +192,8 @@ pub fn process_instruction<'a>(
         ],
         &[staking_payroll_signers_seeds],
     )?;
-
+    msg!("{:?}", now);
+    msg!("{:?}", payroll_data.claimable_after);
     if now < payroll_data.claimable_after {
         return Err(ContractError::InvalidTimeRange.into());
     }
