@@ -1,7 +1,7 @@
 use crate::common::{
     get_or_create_current_payroll,
     recalculate_reward_rate,
-    verify_program_account, verify_system_account,
+    verify_program_account, verify_system_account, TOKEN_DATA_ACCOUNT_TYPE,
 };
 use crate::error::ContractError;
 use crate::schemas::states::payroll::Payroll;
@@ -48,7 +48,7 @@ pub fn process_instruction<'a>(
     verify_system_account(&account)?;
     verify_program_account(pool_pda_account, program_id)?;
     verify_program_account(pda_account, program_id)?;
-    verify_program_account(staking_token_data_pda, program_id)?;
+    // verify_program_account(staking_token_data_pda, program_id)?;
     let token_data_seeeds = &[
         TOKEN_DATA_SEED,
         &staking_token_mint_account.key.to_bytes(),
@@ -57,7 +57,16 @@ pub fn process_instruction<'a>(
     if expected_token_data_pda != *staking_token_data_pda.key {
         return Err(ContractError::InvalidPdaAccount.into());
     }
-    let token_data = TokenData::try_from_slice(&staking_token_data_pda.data.borrow())?;
+    let token_data = match staking_token_data_pda.owner != program_id {
+        true => TokenData {
+            account_type: TOKEN_DATA_ACCOUNT_TYPE,
+            power: 1,
+            token_mint_address: *staking_token_mint_account.key,
+        },
+        false => TokenData::try_from_slice(&staking_token_data_pda.data.borrow())?
+    };
+  
+    // let token_data = TokenData::try_from_slice(&staking_token_data_pda.data.borrow())?;
     let mut updated_pool_data = Pool::try_from_slice(&pool_pda_account.data.borrow())?;
     let mut pda_account_data = StakingAccount::try_from_slice(&pda_account.data.borrow())?;
     let withdrawn_address = pda_account_data.withdrawn_address;
