@@ -13,7 +13,7 @@ use solana_program::{
 use std::{
     convert::TryInto
 };
-use crate::{common::{
+use crate::{common::{   
     get_or_create_next_payroll_by_time,
     recalculate_reward_rate,
     verify_system_account,
@@ -28,6 +28,9 @@ use crate::schemas::states::pool::{
 use crate::schemas::states::payroll::{
     Payroll,
 };
+
+use mpl_token_metadata::{ID as MPL_PROGRAM_ID, state::TokenMetadataAccount};
+use mpl_token_metadata::state::Metadata;
 
 use crate::schemas::states::staking_account::{
     StakingAccount,
@@ -58,11 +61,11 @@ pub fn process_instruction <'a>(
     let staking_token_dest_associated_account = next_account_info(accounts_iter)?;
     let staking_token_data_pda = next_account_info(accounts_iter)?;
     let payroll_pda = next_account_info(accounts_iter)?;
+    let meta_pda = next_account_info(accounts_iter)?;
     let token_program_account = next_account_info(accounts_iter)?;
     let system_program_account = next_account_info(accounts_iter)?;
     // check for account
     // let pool_pda_account_data = pool_pda_account.data.borrow();
-    msg!("Verifying accounts");
     verify_system_account(account)?;
     verify_program_account(pool_pda_account, program_id)?;
     // verify_program_account(staking_token_data_pda, program_id)?;
@@ -70,12 +73,20 @@ pub fn process_instruction <'a>(
         TOKEN_DATA_SEED,
         &staking_token_mint_account.key.to_bytes(),
     ];
+    if *meta_pda.owner != MPL_PROGRAM_ID {
+        return Err(ContractError::InvalidPdaAccount.into());
+    }
+    let metadata = Metadata::from_account_info(meta_pda)?;
     let (expected_token_data_pda, _bump) = Pubkey::find_program_address(token_data_seeeds, program_id);
     if expected_token_data_pda != *staking_token_data_pda.key {
         return Err(ContractError::InvalidPdaAccount.into());
     }
     // let inst_data = PoolDepositIns::try_from_slice(&instruction_data)?;
     let mut pool_data = Pool::try_from_slice(&pool_pda_account.data.borrow())?;
+    let collection = metadata.collection.unwrap();
+    if collection.key != pool_data.collection || collection.verified != true {
+        return Err(ContractError::InvalidCollection.into());
+    }
     // accept +- 10 seconds differences
     let clock = Clock::get()?;
     let now = clock.unix_timestamp;
@@ -148,7 +159,7 @@ pub fn process_instruction <'a>(
             &account.key,
             &pool_pda_account.key,
             &staking_token_mint_account.key,
-            &token_program_account.key
+            // &token_program_account.key
         );
         invoke(
             &create_token_account_ix,
@@ -161,6 +172,7 @@ pub fn process_instruction <'a>(
               token_program_account.clone(),
             ],
         )?;
+
     }
     // now transfer
     let ix = spl_token::instruction::transfer(
@@ -198,7 +210,6 @@ pub fn process_instruction <'a>(
         staking_token_mint_address: *staking_token_mint_account.key,
         withdrawn_address,
     };
-    msg!("{:?}", staking_account);
     staking_account.serialize(&mut &mut pda_account.data.borrow_mut()[..])?;
     pool_data.total_deposited_power += token_data.power;
     let reward_period = pool_data.reward_period;

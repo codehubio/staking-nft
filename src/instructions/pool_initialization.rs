@@ -77,7 +77,7 @@ pub fn process_instruction(
         &account.key,
         &pda_account.key,
         &reward_token_mint_account.key,
-        &token_program_account.key
+        // &token_program_account.key
     );
     invoke(
         &create_token_account_ix,

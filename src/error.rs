@@ -52,8 +52,9 @@ pub enum ContractError {
   #[error("Transfer error")]
   TransferError,
   // f
-  #[error("Not yet voted")]
-  NotYetVoted,
+  #[error("Invalid collection")]
+  InvalidCollection,
+  
 }
 
 impl From<ContractError> for ProgramError {
