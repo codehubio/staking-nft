@@ -1,10 +1,11 @@
 use crate::common::{
     get_current_payroll_index,
     get_or_create_payroll_by_index, verify_ata_account, verify_program_account,
-    verify_system_account, DECIMAL_REWARD, STAKING_PAYROLL_ACCOUNT_TYPE,
+    verify_system_account, STAKING_PAYROLL_ACCOUNT_TYPE,
 };
 use crate::error::ContractError;
 use crate::schemas::states::payroll::Payroll;
+use crate::schemas::states::payroll_token::{PayrollToken, PAYROLL_TOKEN_SEED};
 /// Define the type of state stored in accounts
 use crate::schemas::states::pool::{Pool, REWADER_SEED};
 use crate::schemas::states::staking_account::StakingAccount;
@@ -42,9 +43,10 @@ pub fn process_instruction<'a>(
     let staking_payroll_account = next_account_info(accounts_iter)?;
     let reward_pda = next_account_info(accounts_iter)?;
     let reward_token_mint = next_account_info(accounts_iter)?;
-    let reward_token_pool_associated_account = next_account_info(accounts_iter)?;
+    let reward_token_src_associated_account = next_account_info(accounts_iter)?;
     let reward_token_dest_associated_account = next_account_info(accounts_iter)?;
     let payroll_pda = next_account_info(accounts_iter)?;
+    let payroll_token_pda = next_account_info(accounts_iter)?;
     let token_program_account = next_account_info(accounts_iter)?;
     let system_program_account = next_account_info(accounts_iter)?;
     // check for account
@@ -52,8 +54,9 @@ pub fn process_instruction<'a>(
         return Err(ContractError::NoRewardPayroll.into());
     }
     let inst_data = RewardRedemption::try_from_slice(instruction_data)?;
-    let mut payroll_data = Payroll::try_from_slice(&payroll_pda.data.borrow())?;
+    let payroll_data = Payroll::try_from_slice(&payroll_pda.data.borrow())?;
     let mut staking_account = StakingAccount::try_from_slice(&pda_account.data.borrow())?;
+    let payroll_token_data = PayrollToken::try_from_slice(&payroll_token_pda.data.borrow())?;
     verify_system_account(&account)?;
     verify_program_account(pool_pda_account, program_id)?;
     verify_program_account(pda_account, program_id)?;
@@ -62,21 +65,32 @@ pub fn process_instruction<'a>(
     // only check if dao is not system program
     verify_ata_account(
         &reward_pda.key,
-        reward_token_pool_associated_account.key,
-        &pool_data.reward_token_mint_address,
+        reward_token_src_associated_account.key,
+        &payroll_token_data.reward_token_mint_account,
     )?;
     verify_ata_account(
         &staking_account.withdrawn_address,
         reward_token_dest_associated_account.key,
-        &pool_data.reward_token_mint_address,
+        &payroll_token_data.reward_token_mint_account,
     )?;
     if staking_account.withdrawn_address != *dst_account.key {
         return Err(ContractError::InvalidWithdrawnAddress.into());
     }
-    if pool_data.reward_token_mint_address != *reward_token_mint.key {
+    if payroll_token_data.reward_token_mint_account != *reward_token_mint.key {
         return Err(ContractError::InvalidRewardToken.into());
     }
     let index = inst_data.index;
+    let parsed_index = index.to_string();
+    let payroll_token_pda_account_seeds :&[&[u8]; 4] = &[
+        PAYROLL_TOKEN_SEED,
+        parsed_index.as_bytes(),
+        &reward_token_mint.key.to_bytes(),
+        &payroll_pda.key.to_bytes(),
+    ];
+    let (expected_payroll_token_pda, _token_bump) = Pubkey::find_program_address(payroll_token_pda_account_seeds, program_id);
+    if expected_payroll_token_pda != *payroll_token_pda.key {
+        return Err(ContractError::InvalidPdaAccount.into());
+    }
     if staking_account.first_payroll_index > index {
         return Err(ContractError::InvalidTimeRange.into());
     }
@@ -118,7 +132,7 @@ pub fn process_instruction<'a>(
         let create_token_account_ix = spl_instruction::create_associated_token_account(
             &account.key,
             &staking_account.withdrawn_address,
-            &pool_data.reward_token_mint_address,
+            &payroll_token_data.reward_token_mint_account,
             // &token_program_account.key,
         );
         invoke(
@@ -192,26 +206,22 @@ pub fn process_instruction<'a>(
         ],
         &[staking_payroll_signers_seeds],
     )?;
-    msg!("{:?}", now);
-    msg!("{:?}", payroll_data.claimable_after);
     if now < payroll_data.claimable_after {
         return Err(ContractError::InvalidTimeRange.into());
     }
     let reward_amount = std::cmp::max(
-        staking_account.deposited_power * payroll_data.rate_reward
-            / u64::pow(10, DECIMAL_REWARD)
+        staking_account.deposited_power * payroll_token_data.total_reward_amount 
+            / payroll_data.total_deposited_power
             - total_withdrawn_reward,
         0,
     );
     if reward_amount == 0 {
         return Err(ContractError::RewardAlreadyWithdrawn.into());
     }
-    payroll_data.reward_withdrawn_amount += reward_amount;
-    payroll_data.serialize(&mut &mut payroll_pda.data.borrow_mut()[..])?;
     // tranfer the interest
     let ix = spl_token::instruction::transfer(
         &token_program_account.key,
-        &reward_token_pool_associated_account.key,
+        &reward_token_src_associated_account.key,
         &reward_token_dest_associated_account.key,
         &reward_pda.key,
         &[],
@@ -222,7 +232,7 @@ pub fn process_instruction<'a>(
     invoke_signed(
         &ix,
         &[
-            reward_token_pool_associated_account.clone(),
+            reward_token_src_associated_account.clone(),
             reward_token_dest_associated_account.clone(),
             reward_pda.clone(),
             token_program_account.clone(),
@@ -237,7 +247,7 @@ pub fn process_instruction<'a>(
         staking_pda_account: *pda_account.key,
         deposited_power: staking_account.deposited_power,
         total_pool_deposited_power: payroll_data.total_deposited_power,
-        total_reward_amount: payroll_data.total_reward_amount,
+        total_reward_amount: payroll_token_data.total_reward_amount,
         reward_withdrawn_amount: reward_amount,
         index: payroll_data.index,
         withdrawn_at: now,

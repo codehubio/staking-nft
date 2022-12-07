@@ -1,6 +1,5 @@
 use crate::common::{
     get_or_create_current_payroll,
-    recalculate_reward_rate,
     verify_program_account, verify_system_account, TOKEN_DATA_ACCOUNT_TYPE,
 };
 use crate::error::ContractError;
@@ -174,11 +173,6 @@ pub fn process_instruction<'a>(
     if payroll_pda.data_len() > 0 {
         let mut current_payroll_data = Payroll::try_from_slice(&payroll_pda.data.borrow())?;
         current_payroll_data.total_deposited_power = updated_pool_data.total_deposited_power;
-        let rate_reward = recalculate_reward_rate(
-            current_payroll_data.total_deposited_power,
-            current_payroll_data.total_reward_amount,
-        );
-        current_payroll_data.rate_reward = rate_reward;
         current_payroll_data.serialize(&mut &mut payroll_pda.data.borrow_mut()[..])?;
 
     }

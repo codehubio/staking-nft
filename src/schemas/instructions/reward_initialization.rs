@@ -6,6 +6,6 @@ use borsh::{
 #[derive(BorshSerialize, BorshDeserialize, Debug, Clone)]
 pub struct RewardInitialization {
   // name, 16 char
-  pub nonce: u8,
+  pub index: u8,
 
 }

@@ -15,7 +15,6 @@ use std::{
 };
 use crate::{common::{   
     get_or_create_next_payroll_by_time,
-    recalculate_reward_rate,
     verify_system_account,
     verify_program_account,
     get_staking_pda, STAKING_ACCOUNT_TYPE, POOL_PAYROLL_ACCOUNT_TYPE, TOKEN_DATA_ACCOUNT_TYPE,
@@ -215,26 +214,18 @@ pub fn process_instruction <'a>(
     let reward_period = pool_data.reward_period;
     let start_at = pool_data.start_at;
     let total_deposited_power = pool_data.total_deposited_power;
+    let mut number_of_reward_tokens = 0;
     pool_data.serialize(&mut &mut pool_pda_account.data.borrow_mut()[..])?;
-    let mut payroll_total_reward: u64 = 0;
-    let mut reward_withdrawn_amount = 0;
     if payroll_pda.data_len() > 0 {
         let current_payroll_data = Payroll::try_from_slice(&payroll_pda.data.borrow())?;
-        payroll_total_reward += current_payroll_data.total_reward_amount;
-        reward_withdrawn_amount = current_payroll_data.reward_withdrawn_amount;
+        number_of_reward_tokens = current_payroll_data.number_of_reward_tokens;
     }
-    let rate_reward = recalculate_reward_rate(
-        total_deposited_power,
-        payroll_total_reward,
-    );
     let payroll_account_data = Payroll {
         account_type: POOL_PAYROLL_ACCOUNT_TYPE,
+        number_of_reward_tokens,
         total_deposited_power,
-        reward_withdrawn_amount,
-        total_reward_amount: payroll_total_reward,
         index: next_payroll_index,
         start_at,
-        rate_reward,
         claimable_after: start_at + next_payroll_index * reward_period,
         pool_pda_account: *pool_pda_account.key,
         creator: *account.key

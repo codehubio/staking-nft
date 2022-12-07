@@ -22,6 +22,6 @@ mpl-token-metadata = { version="~1.6.2", features = [ "no-entrypoint" ] }
 thiserror = "1.0.31"
 
 [lib]
-name = "staking_nft_2"
+name = "staking_nft_3"
 crate-type = ["cdylib", "lib"]
 path = "src/lib.rs"

@@ -17,13 +17,10 @@ pub struct Pool {
     pub total_deposited_power: u64,
     // how frequently reward is calculated
     pub reward_period: u64,
+
     // start at
     pub start_at: u64,
 
-    pub reward_token_mint_address: Pubkey,
-    
-    pub reward_ata: Pubkey,
-    // poolType
     pub pool_type: u8,
     // creator
     pub creator: Pubkey,
@@ -31,6 +28,6 @@ pub struct Pool {
     pub collection: Pubkey,
 
 }
-pub const POOL_PDA_LEN: usize = 16 + 1 + 8 + 8 + 8 + 32 + 32 + 1 + 32 + 32;
+pub const POOL_PDA_LEN: usize = 1 + 16 + 8 + 8 + 8 + 1 + 32 + 32;
 pub const POOL_SEED: &[u8] = b"pool";
 pub const REWADER_SEED: &[u8] = b"rewarder";
