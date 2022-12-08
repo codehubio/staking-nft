@@ -102,10 +102,9 @@ pub fn process_instruction<'a>(
     //   POOL_SEED,
     //   &pool_creator_account.key.to_bytes(),
     // ];
-    let pool_pda_account_seeds: &[&[u8]; 3] = &[
-        &updated_pool_data.name[..],
+    let pool_pda_account_seeds: &[&[u8]; 2] = &[
+        &updated_pool_data.id[..],
         POOL_SEED,
-        &updated_pool_data.creator.to_bytes(),
     ];
     let (_, bump) = Pubkey::find_program_address(pool_pda_account_seeds, program_id);
     // let pool_signers_seeds: &[&[u8]; 4] = &[
@@ -114,10 +113,9 @@ pub fn process_instruction<'a>(
     //     &pool_creator_account.key.to_bytes(),
     //     &[bump],
     // ];
-    let pool_pda_signers_seeds: &[&[u8]; 4] = &[
-        &updated_pool_data.name[..],
+    let pool_pda_signers_seeds: &[&[u8]; 3] = &[
+        &updated_pool_data.id[..],
         POOL_SEED,
-        &updated_pool_data.creator.to_bytes(),
         &[bump],
     ];
     // msg!("ata dst address: {:?}, {:?}" ,staking_account.withdrawn_address, dst_account.key);

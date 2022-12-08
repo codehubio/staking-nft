@@ -7,6 +7,8 @@ use solana_program::pubkey::Pubkey;
 #[derive(BorshSerialize, BorshDeserialize, Debug, Clone)]
 pub struct PoolInitializationIns {
   
+  pub id: [u8; 16],
+
   pub name: [u8; 16],
   
   pub reward_period: u64,

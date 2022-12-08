@@ -32,21 +32,18 @@ pub fn process_instruction(
     }
     let inst_data = PoolInitializationIns::try_from_slice(&instruction_data)?;
     let lamports_required = Rent::get()?.minimum_balance(POOL_PDA_LEN);
-    let pool_name = &inst_data.name;
-    let account_seeds: &[&[u8]; 3] = &[
-        pool_name,
+    let pool_id = &inst_data.id;
+    let account_seeds: &[&[u8]; 2] = &[
+        pool_id,
         POOL_SEED,
-        &account.key.to_bytes(),
     ];
     let (expected_pda, bump) = Pubkey::find_program_address(account_seeds, program_id);
     if expected_pda != *pda_account.key {
         return Err(ContractError::InvalidPdaAccount.into());
     }
-    
-    let signers_seeds: &[&[u8]; 4] = &[
-        pool_name,
+    let signers_seeds: &[&[u8]; 3] = &[
+        pool_id,
         POOL_SEED,
-        &account.key.to_bytes(),
         &[bump],
     ];
     let create_pda_account_ix = system_instruction::create_account(
@@ -68,6 +65,7 @@ pub fn process_instruction(
     )?;
     // let clock = Clock::get()?;
     let mut pool_account_data = Pool::try_from_slice(&pda_account.data.borrow())?;
+    pool_account_data.id = inst_data.id;
     pool_account_data.name = inst_data.name;
     pool_account_data.total_deposited_power = 0;
     pool_account_data.reward_period = inst_data.reward_period;
