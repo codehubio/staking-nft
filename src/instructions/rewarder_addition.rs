@@ -87,7 +87,7 @@ pub fn process_instruction<'a>(
         };
         let payroll_data = Payroll {
             account_type: POOL_PAYROLL_ACCOUNT_TYPE,
-            total_deposited_power: 0,
+            total_deposited_power: updated_pool_data.total_deposited_power,
             index: current_payroll_index,
             number_of_reward_tokens,
             start_at,
