@@ -51,6 +51,11 @@ pub fn process_instruction<'a>(
             accounts,
             rest,
         ),
+        7 =>  instructions::collection_data::process_instruction(
+            program_id,
+            accounts,
+            rest,
+        ),
         _ => Err(ProgramError::InvalidInstructionData)
     }?;
     Ok(())

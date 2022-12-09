@@ -39,6 +39,7 @@ pub const POOL_PAYROLL_TOKEN_ACCOUNT_TYPE: u8 = 103;
 pub const POOL_PAYROLL_INDEX_ACCOUNT_TYPE: u8 = 104;
 pub const STAKING_PAYROLL_ACCOUNT_TYPE: u8 = 105;
 pub const TOKEN_DATA_ACCOUNT_TYPE: u8 = 106;
+pub const COLLECTION_DATA_ACCOUNT_TYPE: u8 = 107;
 
 pub fn get_current_payroll_index(
     current_at: u64,
