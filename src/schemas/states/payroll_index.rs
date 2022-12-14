@@ -14,5 +14,5 @@ pub struct PayrollIndex {
     pub payroll_pda: Pubkey,
     pub creator: Pubkey,
 }
-pub const PAYROLL_INDEX_PDA_LEN: usize = 1 + 32 + 8 + 8 + 8 + 32 + 32;
+pub const PAYROLL_INDEX_PDA_LEN: usize = 1 + 32 + 8 + 32 + 32;
 pub const PAYROLL_INDEX_SEED: &[u8] = b"payrollindex";

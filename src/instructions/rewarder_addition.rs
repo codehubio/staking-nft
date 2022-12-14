@@ -96,23 +96,25 @@ pub fn process_instruction<'a>(
             creator: *account.key,
         };
         payroll_data.serialize(&mut &mut payroll_pda.data.borrow_mut()[..])?;
-        let create_token_account_ix = spl_instruction::create_associated_token_account(
-            &account.key,
-            &payroll_pda.key,
-            &reward_token_mint_account.key,
-            // &token_program_account.key
-        );
-        invoke(
-            &create_token_account_ix,
-            &[
-              account.clone(),
-              reward_token_dest_associated_account.clone(),
-              payroll_pda.clone(),
-              reward_token_mint_account.clone(),
-              system_program_account.clone(),
-              token_program_account.clone(),
-            ],
-        )?; 
+        if reward_token_mint_account.key != system_program_account.key {
+            let create_token_account_ix = spl_instruction::create_associated_token_account(
+                &account.key,
+                &payroll_pda.key,
+                &reward_token_mint_account.key,
+                // &token_program_account.key
+            );
+            invoke(
+                &create_token_account_ix,
+                &[
+                  account.clone(),
+                  reward_token_dest_associated_account.clone(),
+                  payroll_pda.clone(),
+                  reward_token_mint_account.clone(),
+                  system_program_account.clone(),
+                  token_program_account.clone(),
+                ],
+            )?; 
+        }
     } else {
         let mut payroll_data = Payroll::try_from_slice(&payroll_pda.data.borrow())?;
         number_of_reward_tokens = payroll_data.number_of_reward_tokens + 1;
@@ -202,27 +204,41 @@ pub fn process_instruction<'a>(
         payroll_token_data.serialize(&mut &mut payroll_token_pda.data.borrow_mut()[..])?;
     }
 
-
-    let ix = spl_token::instruction::transfer(
-        &token_program_account.key,
-        &reward_token_source_associated_account.key,
-        &reward_token_dest_associated_account.key,
-        &account.key,
-        &[],
-        amount,
-    )?;
-    // let signers_seeds: &[&[u8]; 1] = &[
-    //     &pda_account.key.to_bytes(),
-    // ];
-    invoke(
-        &ix,
-        &[
-            reward_token_source_associated_account.clone(),
-            reward_token_dest_associated_account.clone(),
-            account.clone(),
-            token_program_account.clone(),
-        ],
-    )?;
+    if reward_token_mint_account.key != system_program_account.key {
+        let ix = spl_token::instruction::transfer(
+            &token_program_account.key,
+            &reward_token_source_associated_account.key,
+            &reward_token_dest_associated_account.key,
+            &account.key,
+            &[],
+            amount,
+        )?;
+        // let signers_seeds: &[&[u8]; 1] = &[
+        //     &pda_account.key.to_bytes(),
+        // ];
+        invoke(
+            &ix,
+            &[
+                reward_token_source_associated_account.clone(),
+                reward_token_dest_associated_account.clone(),
+                account.clone(),
+                token_program_account.clone(),
+            ],
+        )?;
+    } else {
+        let sol_ix = system_instruction::transfer(
+            account.key,
+            payroll_pda.key,
+            amount,
+        );
+        invoke(
+            &sol_ix,
+            &[
+                account.clone(),
+                payroll_pda.clone(),
+            ],
+        )?;
+    }
 
     Ok(())
 }

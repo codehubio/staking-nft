@@ -123,27 +123,29 @@ pub fn process_instruction<'a>(
         &pool_pda_account.key.to_bytes(),
         &[payroll_bump],
     ];
-    let ata_account_data_len = reward_token_dest_associated_account.data_len();
     // msg!("ata dst address: {:?}, {:?}" ,staking_account.withdrawn_address, dst_account.key);
-    if ata_account_data_len <= 0 {
-        let create_token_account_ix = spl_instruction::create_associated_token_account(
-            &account.key,
-            &staking_account.withdrawn_address,
-            &payroll_token_data.reward_token_mint_account,
-            // &token_program_account.key,
-        );
-        invoke(
-            &create_token_account_ix,
-            &[
-                account.clone(),
-                reward_token_dest_associated_account.clone(),
-                dst_account.clone(),
-                reward_token_mint.clone(),
-                system_program_account.clone(),
-                token_program_account.clone(),
-            ],
-            // &[signers_seeds]
-        )?;
+    if reward_token_mint.key != system_program_account.key {
+        let ata_account_data_len = reward_token_dest_associated_account.data_len();
+        if ata_account_data_len <= 0 {
+            let create_token_account_ix = spl_instruction::create_associated_token_account(
+                &account.key,
+                &staking_account.withdrawn_address,
+                &payroll_token_data.reward_token_mint_account,
+                // &token_program_account.key,
+            );
+            invoke(
+                &create_token_account_ix,
+                &[
+                    account.clone(),
+                    reward_token_dest_associated_account.clone(),
+                    dst_account.clone(),
+                    reward_token_mint.clone(),
+                    system_program_account.clone(),
+                    token_program_account.clone(),
+                ],
+                // &[signers_seeds]
+            )?;
+        }
     }
 
     // fund withdrawn
@@ -218,26 +220,31 @@ pub fn process_instruction<'a>(
         return Err(ContractError::RewardAlreadyWithdrawn.into());
     }
     // tranfer the interest
-    let ix = spl_token::instruction::transfer(
-        &token_program_account.key,
-        &reward_token_src_associated_account.key,
-        &reward_token_dest_associated_account.key,
-        &payroll_pda.key,
-        &[],
-        reward_amount,
-    )?;
-
-    // msg!("src: {:?}, dest: {:?}, pda: {:?}, token_program: {:?}", &reward_token_pool_associated_account.key, &reward_token_dest_associated_account.key, &pda_account.key, &token_program_account.key);
-    invoke_signed(
-        &ix,
-        &[
-            reward_token_src_associated_account.clone(),
-            reward_token_dest_associated_account.clone(),
-            payroll_pda.clone(),
-            token_program_account.clone(),
-        ],
-        &[payroll_pda_signer_seeds],
-    )?;
+    if reward_token_mint.key != system_program_account.key {
+        let ix = spl_token::instruction::transfer(
+            &token_program_account.key,
+            &reward_token_src_associated_account.key,
+            &reward_token_dest_associated_account.key,
+            &payroll_pda.key,
+            &[],
+            reward_amount,
+        )?;
+    
+        // msg!("src: {:?}, dest: {:?}, pda: {:?}, token_program: {:?}", &reward_token_pool_associated_account.key, &reward_token_dest_associated_account.key, &pda_account.key, &token_program_account.key);
+        invoke_signed(
+            &ix,
+            &[
+                reward_token_src_associated_account.clone(),
+                reward_token_dest_associated_account.clone(),
+                payroll_pda.clone(),
+                token_program_account.clone(),
+            ],
+            &[payroll_pda_signer_seeds],
+        )?;
+    } else {
+        **payroll_pda.try_borrow_mut_lamports()? -= reward_amount;
+        **dst_account.try_borrow_mut_lamports()? += reward_amount;
+    }
     staking_account.withdrawn_reward_amount += reward_amount;
     // tranfer the interest
     staking_account.serialize(&mut &mut pda_account.data.borrow_mut()[..])?;
